@@ -15,16 +15,18 @@ function Invoke-AddUser {
     $UserObj = $Request.Body
 
     if ($UserObj.Scheduled.Enabled) {
+        $Username = $UserObj.username ?? $UserObj.mailNickname
         $TaskBody = [pscustomobject]@{
             TenantFilter  = $UserObj.tenantFilter
-            Name          = "New user creation: $($UserObj.mailNickname)@$($UserObj.PrimDomain.value)"
+            Name          = "New user creation: $($Username)@$($UserObj.PrimDomain.value)"
             Command       = @{
                 value = 'New-CIPPUserTask'
                 label = 'New-CIPPUserTask'
             }
-            Parameters    = [pscustomobject]@{ UserObj = $UserObj }
-            ScheduledTime = $UserObj.Scheduled.date
-            PostExecution = @{
+            Parameters             = [pscustomobject]@{ UserObj = $UserObj }
+            ScheduledTime          = $UserObj.Scheduled.date
+            Reference              = $UserObj.reference ?? $null
+            PostExecution          = @{
                 Webhook = [bool]$Request.Body.PostExecution.Webhook
                 Email   = [bool]$Request.Body.PostExecution.Email
                 PSA     = [bool]$Request.Body.PostExecution.PSA

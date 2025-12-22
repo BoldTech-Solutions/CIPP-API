@@ -11,8 +11,6 @@ function Invoke-ExecGDAPInvite {
     $APIName = $Request.Params.CIPPEndpoint
     $Headers = $Request.Headers
 
-
-
     $Action = $Request.Body.Action ?? $Request.Query.Action ?? 'Create'
     $InviteId = $Request.Body.InviteId
     $Reference = $Request.Body.Reference
@@ -23,8 +21,8 @@ function Invoke-ExecGDAPInvite {
         $user = $headers.'x-ms-client-principal'
         $Technician = ([System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($user)) | ConvertFrom-Json).userDetails
     } elseif ($Headers.'x-ms-client-principal-idp' -eq 'aad') {
-        $Table = Get-CIPPTable -TableName 'ApiClients'
-        $Client = Get-CIPPAzDataTableEntity @Table -Filter "RowKey eq '$($headers.'x-ms-client-principal-name')'"
+        $ApiClientTable = Get-CIPPTable -TableName 'ApiClients'
+        $Client = Get-CIPPAzDataTableEntity @ApiClientTable -Filter "RowKey eq '$($headers.'x-ms-client-principal-name')'"
         $Technician = $Client.AppName ?? 'CIPP-API'
     } else {
         try {
@@ -93,10 +91,9 @@ function Invoke-ExecGDAPInvite {
                             'InviteUrl'     = $InviteUrl
                             'OnboardingUrl' = $OnboardingUrl
                             'RoleMappings'  = [string](@($RoleMappings) | ConvertTo-Json -Depth 10 -Compress)
-                            'Technician'    = $Technician
+                            'Technician'    = [string]$Technician
+                            'Reference'     = if ($Reference) { [string]$Reference } else { $null }
                         }
-
-                        if ($Reference) { $InviteEntity['Reference'] = $Reference }
 
                         Add-CIPPAzDataTableEntity @Table -Entity $InviteEntity
 
@@ -125,7 +122,7 @@ function Invoke-ExecGDAPInvite {
                 Invite  = $InviteEntity
             }
         }
-        'Update'{
+        'Update' {
             $Invite = Get-CIPPAzDataTableEntity @Table -Filter "PartitionKey eq 'invite' and RowKey eq '$InviteId'"
             if ($Invite) {
 
@@ -133,9 +130,8 @@ function Invoke-ExecGDAPInvite {
                     'PartitionKey' = 'invite'
                     'RowKey'       = $InviteId
                     'Technician'   = $Technician
+                    'Reference'    = if ($Reference) { $Reference } else { $null }
                 }
-
-                if ($Reference) { $InviteEntity['Reference'] = $Reference }
 
                 Add-CIPPAzDataTableEntity @Table -Entity $InviteEntity -OperationType 'UpsertMerge'
                 $Message = 'Invite updated'

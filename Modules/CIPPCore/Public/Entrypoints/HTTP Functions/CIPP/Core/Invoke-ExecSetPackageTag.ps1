@@ -20,25 +20,29 @@ function Invoke-ExecSetPackageTag {
         if ($Remove -eq $true) {
             # Remove package tag by setting it to null/empty
             $PackageValue = $null
-            $LogMessage = "Successfully removed package tag from template with GUID"
-            $SuccessMessage = "Successfully removed package tag from template(s)"
+            $LogMessage = 'Successfully removed package tag from template with GUID'
+            $SuccessMessage = 'Successfully removed package tag from template(s)'
         } else {
             # Add package tag (existing logic)
-            $PackageValue = $Request.body.Package | Select-Object -First 1
-            $LogMessage = "Successfully updated template with GUID"
+            $PackageValue = [string]($Request.body.Package | Select-Object -First 1)
+            $LogMessage = 'Successfully updated template with GUID'
             $SuccessMessage = "Successfully updated template(s) with package tag: $PackageValue"
         }
 
         foreach ($GUID in $GUIDS) {
             $Filter = "RowKey eq '$GUID'"
             $Template = Get-CIPPAzDataTableEntity @Table -Filter $Filter
-            Add-CIPPAzDataTableEntity @Table -Entity @{
+            $Entity = @{
                 JSON         = $Template.JSON
                 RowKey       = "$GUID"
                 PartitionKey = $Template.PartitionKey
                 GUID         = "$GUID"
                 Package      = $PackageValue
-            } -Force
+                SHA          = $Template.SHA ?? $null
+            }
+
+
+            Add-CIPPAzDataTableEntity @Table -Entity $Entity -Force
 
             if ($Remove -eq $true) {
                 Write-LogMessage -headers $Headers -API $APIName -message "$LogMessage $GUID" -Sev 'Info'

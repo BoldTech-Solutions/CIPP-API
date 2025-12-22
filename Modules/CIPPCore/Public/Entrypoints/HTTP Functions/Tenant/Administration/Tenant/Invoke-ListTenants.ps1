@@ -16,11 +16,7 @@ function Invoke-ListTenants {
     $TenantAccess = Test-CIPPAccess -Request $Request -TenantList
     Write-Host "Tenant Access: $TenantAccess"
 
-    if ($TenantAccess -notcontains 'AllTenants') {
-        $AllTenantSelector = $false
-    } else {
-        $AllTenantSelector = $Request.Query.AllTenantSelector
-    }
+    $AllTenantSelector = $Request.Query.AllTenantSelector
 
     $IncludeOffboardingDefaults = $Request.Query.IncludeOffboardingDefaults
 
@@ -70,7 +66,16 @@ function Invoke-ListTenants {
     }
     try {
         $TenantFilter = $Request.Query.tenantFilter
-        $Tenants = Get-Tenants -IncludeErrors -SkipDomains
+        $tenantParams = @{
+            IncludeErrors = $true
+            SkipDomains   = $true
+        }
+        if ($TenantFilter -and $TenantFilter -ne 'AllTenants') {
+            $tenantParams['TenantFilter'] = $TenantFilter
+        }
+
+        $Tenants = Get-Tenants @tenantParams
+
         if ($TenantAccess -notcontains 'AllTenants') {
             $Tenants = $Tenants | Where-Object -Property customerId -In $TenantAccess
         }
@@ -98,7 +103,7 @@ function Invoke-ListTenants {
             }
         }
 
-        if ($null -eq $TenantFilter -or $TenantFilter -eq 'null') {
+        if (($null -eq $TenantFilter -or $TenantFilter -eq 'null') -or $Request.Query.Mode -eq 'TenantList') {
             $TenantList = [system.collections.generic.list[object]]::new()
             if ($AllTenantSelector -eq $true) {
                 $AllTenantsObject = @{
@@ -141,7 +146,7 @@ function Invoke-ListTenants {
             }
 
         } else {
-            $body = $Tenants | Where-Object -Property defaultDomainName -EQ $TenantFilter
+            $body = $Tenants
         }
 
         Write-LogMessage -headers $Headers -tenant $TenantFilter -API $APIName -message 'Listed Tenant Details' -Sev 'Debug'
